@@ -6,10 +6,8 @@ use bevy_quinnet::{
     },
     shared::ClientId,
 };
-use protocol::{ClientMessage, ServerMessage};
+use common::{ClientMessage, ServerMessage};
 use std::collections::HashMap;
-
-mod protocol;
 
 #[derive(Resource, Debug, Clone, Default)]
 struct Users {
