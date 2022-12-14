@@ -6,7 +6,10 @@ use bevy_quinnet::{
     },
     shared::ClientId,
 };
-use common::{ClientMessage, ServerMessage};
+use bevy_voxel_engine::Velocity;
+use common::{ClientData, ClientMessage, ServerMessage};
+
+use crate::character::CharacterEntity;
 
 pub struct NetworkingPlugin;
 
@@ -14,23 +17,68 @@ impl Plugin for NetworkingPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Users::default())
             .add_plugin(QuinnetClientPlugin::default())
-            .add_startup_system(start_connection)
             .add_system(handle_client_events)
+            .add_event::<CreateConnectionEvent>()
+            .add_event::<DisconnectEvent>()
+            .add_system(send_character_position)
+            .add_system(events_system)
             .add_system(handle_server_messages);
     }
 }
 
+pub struct CreateConnectionEvent {
+    pub ip: String,
+}
+pub struct DisconnectEvent;
+
 #[derive(Resource, Debug, Clone, Default)]
 struct Users {
     self_id: ClientId,
+    client_data: HashMap<ClientId, ClientData>,
     character_entities: HashMap<ClientId, Entity>,
 }
 
-fn start_connection(mut client: ResMut<Client>) {
-    client.open_connection(
-        ConnectionConfiguration::new("127.0.0.1".to_string(), 6000, "0.0.0.0".to_string(), 0),
-        CertificateVerificationMode::SkipVerification,
-    );
+#[derive(Component)]
+struct RemotePlayer;
+
+fn events_system(
+    mut create_connection_events: EventReader<CreateConnectionEvent>,
+    mut disconnect_events: EventReader<DisconnectEvent>,
+    mut client: ResMut<Client>,
+) {
+    for event in create_connection_events.iter() {
+        client.open_connection(
+            ConnectionConfiguration::new(event.ip.clone(), 6000, "0.0.0.0".to_string(), 0),
+            CertificateVerificationMode::SkipVerification,
+        );
+    }
+
+    for _ in disconnect_events.iter() {
+        if client.connections().len() > 0 {
+            client
+                .connection()
+                .send_message(ClientMessage::Disconnect {})
+                .unwrap();
+        }
+    }
+}
+
+fn send_character_position(
+    client: Res<Client>,
+    character_query: Query<(&Transform, &Velocity), With<CharacterEntity>>,
+) {
+    if client.connections().len() == 0 {
+        return;
+    }
+
+    let (transform, velocity) = character_query.single();
+    client
+        .connection()
+        .send_message(ClientMessage::UpdatePosition {
+            position: transform.translation,
+            velocity: velocity.velocity,
+        })
+        .unwrap();
 }
 
 fn handle_client_events(connection_events: EventReader<ConnectionEvent>, client: ResMut<Client>) {
@@ -43,14 +91,25 @@ fn handle_client_events(connection_events: EventReader<ConnectionEvent>, client:
 
         client
             .connection()
-            .send_message(ClientMessage::Join { name: username })
+            .send_message(ClientMessage::Join {
+                client_data: ClientData { username },
+            })
             .unwrap();
 
         connection_events.clear();
     }
 }
 
-fn handle_server_messages(mut users: ResMut<Users>, mut client: ResMut<Client>) {
+fn handle_server_messages(
+    mut commands: Commands,
+    mut users: ResMut<Users>,
+    mut client: ResMut<Client>,
+    mut character_query: Query<&mut Transform, With<RemotePlayer>>,
+) {
+    if client.connections().len() == 0 {
+        return;
+    }
+
     while let Some(message) = client
         .connection_mut()
         .try_receive_message::<ServerMessage>()
@@ -58,50 +117,52 @@ fn handle_server_messages(mut users: ResMut<Users>, mut client: ResMut<Client>) 
         match message {
             ServerMessage::ClientConnected {
                 client_id,
-                username,
+                client_data,
             } => {
-                // info!("{} joined", username);
-                // users.names.insert(client_id, username);
+                info!("{} joined", client_data.username);
+                users.client_data.insert(client_id, client_data);
             }
             ServerMessage::ClientDisconnected { client_id } => {
-                // if let Some(username) = users.names.remove(&client_id) {
-                //     println!("{} left", username);
-                // } else {
-                //     warn!("ClientDisconnected for an unknown client_id: {}", client_id)
-                // }
-            }
-            ServerMessage::ChatMessage { client_id, message } => {
-                // if let Some(username) = users.names.get(&client_id) {
-                //     if client_id != users.self_id {
-                //         println!("{}: {}", username, message);
-                //     }
-                // } else {
-                //     warn!("Chat message from an unknown client_id: {}", client_id)
-                // }
-            }
-            ServerMessage::Image { client_id, image } => {
-                // if let Some(username) = users.names.get(&client_id) {
-                //     if client_id != users.self_id {
-                //         println!("{} sent an image: ", username);
-
-                //         let tones = " .:-=+*#%@"; // 10 levels of gray
-                //         for line in image.iter() {
-                //             for pixel in line.iter() {
-                //                 print!("{}", tones.chars().nth(*pixel as usize / 25).unwrap());
-                //             }
-                //             println!();
-                //         }
-                //     }
-                // } else {
-                //     warn!("Image from an unknown client_id: {}", client_id)
-                // }
+                if let Some(entity) = users.character_entities.remove(&client_id) {
+                    commands.entity(entity).despawn();
+                } else {
+                    warn!("ClientDisconnected for an unknown client_id: {}", client_id)
+                }
             }
             ServerMessage::InitClient {
                 client_id,
-                usernames,
+                client_data,
             } => {
-                // users.self_id = client_id;
-                // users.names = usernames;
+                users.self_id = client_id;
+                users.client_data = client_data;
+            }
+            ServerMessage::UpdatePosition {
+                client_id,
+                position,
+                ..
+            } => {
+                if client_id != users.self_id {
+                    if let Some(entity) = users.character_entities.get(&client_id) {
+                        let mut transform = character_query
+                            .get_mut(*entity)
+                            .expect("Character entity destroyed");
+                        transform.translation = position;
+                    } else {
+                        users.character_entities.insert(
+                            client_id,
+                            commands
+                                .spawn((
+                                    Transform::from_translation(position),
+                                    bevy_voxel_engine::Box {
+                                        half_size: IVec3::new(2, 4, 2),
+                                        material: 10,
+                                    },
+                                    RemotePlayer,
+                                ))
+                                .id(),
+                        );
+                    }
+                }
             }
         }
     }

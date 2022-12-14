@@ -1,14 +1,19 @@
+use bevy::{prelude::*, utils::HashMap};
 use bevy_quinnet::shared::ClientId;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+
+// Data about a client
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientData {
+    pub username: String,
+}
 
 // Messages from clients
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ClientMessage {
-    Join { name: String },
+    Join { client_data: ClientData },
     Disconnect {},
-    ChatMessage { message: String },
-    Image { image: Vec<Vec<u8>> },
+    UpdatePosition { position: Vec3, velocity: Vec3 },
 }
 
 // Messages from the server
@@ -16,21 +21,18 @@ pub enum ClientMessage {
 pub enum ServerMessage {
     ClientConnected {
         client_id: ClientId,
-        username: String,
+        client_data: ClientData,
     },
     ClientDisconnected {
         client_id: ClientId,
     },
-    ChatMessage {
-        client_id: ClientId,
-        message: String,
-    },
-    Image {
-        client_id: ClientId,
-        image: Vec<Vec<u8>>,
-    },
     InitClient {
         client_id: ClientId,
-        usernames: HashMap<ClientId, String>,
+        client_data: HashMap<ClientId, ClientData>,
+    },
+    UpdatePosition {
+        client_id: ClientId,
+        position: Vec3,
+        velocity: Vec3,
     },
 }

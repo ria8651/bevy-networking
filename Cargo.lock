@@ -237,7 +237,7 @@ dependencies = [
 [[package]]
 name = "bevy-voxel-engine"
 version = "0.1.0"
-source = "git+https://github.com/ria8651/bevy-voxel-engine#18815eb107e6b2830e7fd5b52687ae62b3e810cb"
+source = "git+https://github.com/ria8651/bevy-voxel-engine#78691bd0dd95a8b85548d857827882ff4529e920"
 dependencies = [
  "bevy",
  "bytemuck",

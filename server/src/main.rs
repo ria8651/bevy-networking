@@ -1,4 +1,4 @@
-use bevy::{app::ScheduleRunnerPlugin, log::LogPlugin, prelude::*};
+use bevy::{app::ScheduleRunnerPlugin, log::LogPlugin, prelude::*, utils::HashMap};
 use bevy_quinnet::{
     server::{
         certificate::CertificateRetrievalMode, ConnectionLostEvent, Endpoint, QuinnetServerPlugin,
@@ -6,44 +6,43 @@ use bevy_quinnet::{
     },
     shared::ClientId,
 };
-use common::{ClientMessage, ServerMessage};
-use std::collections::HashMap;
+use common::{ClientData, ClientMessage, ServerMessage};
 
 #[derive(Resource, Debug, Clone, Default)]
 struct Users {
-    names: HashMap<ClientId, String>,
+    client_data: HashMap<ClientId, ClientData>,
 }
 
 fn handle_client_messages(mut server: ResMut<Server>, mut users: ResMut<Users>) {
     let endpoint = server.endpoint_mut();
     while let Ok(Some((message, client_id))) = endpoint.receive_message::<ClientMessage>() {
         match message {
-            ClientMessage::Join { name } => {
-                if users.names.contains_key(&client_id) {
+            ClientMessage::Join { client_data } => {
+                if users.client_data.contains_key(&client_id) {
                     warn!(
                         "Received a Join from an already connected client: {}",
                         client_id
                     )
                 } else {
-                    info!("{} connected", name);
-                    users.names.insert(client_id, name.clone());
+                    info!("{} connected", client_data.username);
+                    users.client_data.insert(client_id, client_data.clone());
                     // Initialize this client with existing state
                     endpoint
                         .send_message(
                             client_id,
                             ServerMessage::InitClient {
                                 client_id: client_id,
-                                usernames: users.names.clone(),
+                                client_data: users.client_data.clone(),
                             },
                         )
                         .unwrap();
                     // Broadcast the connection event
                     endpoint
                         .send_group_message(
-                            users.names.keys().into_iter(),
+                            users.client_data.keys().into_iter(),
                             ServerMessage::ClientConnected {
                                 client_id: client_id,
-                                username: name,
+                                client_data: client_data.clone(),
                             },
                         )
                         .unwrap();
@@ -54,30 +53,25 @@ fn handle_client_messages(mut server: ResMut<Server>, mut users: ResMut<Users>) 
                 endpoint.disconnect_client(client_id).unwrap();
                 handle_disconnect(endpoint, &mut users, client_id);
             }
-            ClientMessage::ChatMessage { message } => {
-                info!(
-                    "Chat message | {:?}: {}",
-                    users.names.get(&client_id),
-                    message
-                );
+            ClientMessage::UpdatePosition { position, velocity } => {
                 endpoint.try_send_group_message(
-                    users.names.keys().into_iter(),
-                    ServerMessage::ChatMessage {
-                        client_id: client_id,
-                        message: message,
+                    users.client_data.keys().into_iter(),
+                    ServerMessage::UpdatePosition {
+                        client_id,
+                        position,
+                        velocity,
                     },
                 );
-            }
-            ClientMessage::Image { image } => {
-                info!("Image | {:?}", users.names.get(&client_id));
-                endpoint.try_send_group_message(
-                    users.names.keys().into_iter(),
-                    ServerMessage::Image {
-                        client_id: client_id,
-                        image: image,
-                    },
-                );
-            }
+            } // ClientMessage::Image { image } => {
+              //     info!("Image | {:?}", users.names.get(&client_id));
+              //     endpoint.try_send_group_message(
+              //         users.names.keys().into_iter(),
+              //         ServerMessage::Image {
+              //             client_id: client_id,
+              //             image: image,
+              //         },
+              //     );
+              // }
         }
     }
 }
@@ -96,18 +90,17 @@ fn handle_server_events(
 /// Shared disconnection behaviour, whether the client lost connection or asked to disconnect
 fn handle_disconnect(endpoint: &mut Endpoint, users: &mut ResMut<Users>, client_id: ClientId) {
     // Remove this user
-    if let Some(username) = users.names.remove(&client_id) {
+    if let Some(client_data) = users.client_data.remove(&client_id) {
         // Broadcast its deconnection
-
         endpoint
             .send_group_message(
-                users.names.keys().into_iter(),
+                users.client_data.keys().into_iter(),
                 ServerMessage::ClientDisconnected {
                     client_id: client_id,
                 },
             )
             .unwrap();
-        info!("{} disconnected", username);
+        info!("{} disconnected", client_data.username);
     } else {
         warn!(
             "Received a Disconnect from an unknown or disconnected client: {}",
