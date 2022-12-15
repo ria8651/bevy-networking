@@ -93,25 +93,25 @@ fn update_character(
         //         + input.x * transform.local_x()
         //         + input.y * transform.local_y();
         // } else {
-            if velocity.velocity.y == 0.0 {
-                character.grounded = true;
-            }
-            if input.y > 0.0 && character.grounded {
-                velocity.velocity.y = 5.0;
-                character.grounded = false;
-            }
-            velocity.velocity += Vec3::new(0.0, -9.81 * time.delta_seconds(), 0.0);
+        if velocity.velocity.y == 0.0 {
+            character.grounded = true;
+        }
+        if input.y > 0.0 && character.grounded {
+            velocity.velocity.y = 5.0;
+            character.grounded = false;
+        }
+        velocity.velocity += Vec3::new(0.0, -9.81 * time.delta_seconds(), 0.0);
 
-            let plane_forward = transform.local_x().cross(Vec3::Y).normalize();
-            target_velocity = input.z * plane_forward
-                + input.x * transform.local_x()
-                + velocity.velocity.y * Vec3::Y;
+        let plane_forward = transform.local_x().cross(Vec3::Y).normalize();
+        target_velocity =
+            input.z * plane_forward + input.x * transform.local_x() + velocity.velocity.y * Vec3::Y;
         // }
     } else {
         target_velocity = Vec3::splat(0.0);
     }
 
-    let acceleration: f32 = if false { // settings.spectator
+    let acceleration: f32 = if false {
+        // settings.spectator
         0.2
     } else if character.grounded {
         0.2

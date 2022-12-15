@@ -1,5 +1,4 @@
-use crate::networking::{CreateConnectionEvent, DisconnectEvent};
-
+// use crate::networking::{CreateConnectionEvent, DisconnectEvent};
 use super::{character::CharacterEntity, Velocity};
 use bevy::{
     core_pipeline::{bloom::BloomSettings, fxaa::Fxaa, tonemapping::Tonemapping},
@@ -48,9 +47,9 @@ fn ui_system(
         Option<&mut Fxaa>,
     )>,
     mut denoise_pass_data: ResMut<DenoiseSettings>,
-    mut ui_state: ResMut<UIState>,
-    mut connection_events: EventWriter<CreateConnectionEvent>,
-    mut disconnect_events: EventWriter<DisconnectEvent>,
+    // mut ui_state: ResMut<UIState>,
+    // mut connection_events: EventWriter<CreateConnectionEvent>,
+    // mut disconnect_events: EventWriter<DisconnectEvent>,
 ) {
     egui::Window::new("Settings")
         .anchor(egui::Align2::RIGHT_TOP, [-5.0, 5.0])
@@ -153,15 +152,15 @@ fn ui_system(
             });
         });
 
-    egui::Window::new("Networking").show(egui_context.ctx_mut(), |ui| {
-        ui.text_edit_singleline(&mut ui_state.ip);
-        if ui.button("Connect").clicked() {
-            connection_events.send(CreateConnectionEvent {
-                ip: ui_state.ip.clone(),
-            });
-        }
-        if ui.button("Disconnect").clicked() {
-            disconnect_events.send(DisconnectEvent);
-        }
-    });
+    // egui::Window::new("Networking").show(egui_context.ctx_mut(), |ui| {
+    //     ui.text_edit_singleline(&mut ui_state.ip);
+    //     if ui.button("Connect").clicked() {
+    //         connection_events.send(CreateConnectionEvent {
+    //             ip: ui_state.ip.clone(),
+    //         });
+    //     }
+    //     if ui.button("Disconnect").clicked() {
+    //         disconnect_events.send(DisconnectEvent);
+    //     }
+    // });
 }
