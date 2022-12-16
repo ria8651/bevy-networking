@@ -1,7 +1,7 @@
 use super::{character::CharacterEntity, Velocity};
 use bevy::{
     core_pipeline::{bloom::BloomSettings, fxaa::Fxaa, tonemapping::Tonemapping},
-    diagnostic::FrameTimeDiagnosticsPlugin,
+    diagnostic::{FrameTimeDiagnosticsPlugin, Diagnostics},
     prelude::*,
 };
 use bevy_egui::{
@@ -31,10 +31,16 @@ fn ui_system(
         Option<&mut Fxaa>,
     )>,
     mut denoise_pass_data: ResMut<DenoiseSettings>,
+    diagnostics: Res<Diagnostics>,
 ) {
     egui::Window::new("Settings")
         .anchor(egui::Align2::RIGHT_TOP, [-5.0, 5.0])
         .show(egui_context.ctx_mut(), |ui| {
+            if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
+                if let Some(average) = fps.average() {
+                    ui.label(format!("Fps: {:.0}", average));
+                }
+            }
             for (i, (mut trace_settings, bloom_settings, tonemapping, fxaa)) in
                 camera_settings_query.iter_mut().enumerate()
             {
