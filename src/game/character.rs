@@ -1,3 +1,4 @@
+use crate::GameState;
 use bevy::{input::mouse::MouseMotion, prelude::*, window::CursorGrabMode};
 use bevy_voxel_engine::Velocity;
 
@@ -13,11 +14,11 @@ pub struct CharacterEntity {
     pub portal2: Entity,
 }
 
-pub struct Character;
+pub struct CharacterPlugin;
 
-impl Plugin for Character {
+impl Plugin for CharacterPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(setup_character)
+        app.add_system_set(SystemSet::on_enter(GameState::Game).with_system(setup_character))
             .add_system(update_character);
     }
 }
@@ -46,6 +47,10 @@ fn update_character(
     let window = windows.get_primary_mut().unwrap();
     if keys.just_pressed(KeyCode::Escape) {
         toggle_grab_cursor(window);
+    }
+
+    if character.iter().count() == 0 {
+        return;
     }
 
     let (mut transform, mut velocity, mut character) = character.single_mut();

@@ -1,25 +1,34 @@
+use self::{
+    character::{CharacterEntity, CharacterPlugin},
+    ui::UiPlugin,
+};
+use crate::{despawn_screen, GameState};
 use bevy::{
     core_pipeline::{bloom::BloomSettings, fxaa::Fxaa},
     prelude::*,
 };
 use bevy_voxel_engine::*;
-use character::CharacterEntity;
 
 mod character;
-mod networking;
 mod ui;
 
-fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(BevyVoxelEnginePlugin)
-        .add_plugin(character::Character)
-        .add_plugin(ui::UiPlugin)
-        .add_plugin(networking::NetworkingPlugin)
-        .add_startup_system(setup)
-        .add_system(shoot)
-        .add_system(spawn_portals)
-        .run();
+#[derive(Component)]
+struct InGame;
+
+pub struct GamePlugin;
+
+impl Plugin for GamePlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugin(BevyVoxelEnginePlugin)
+            .add_plugin(CharacterPlugin)
+            .add_plugin(UiPlugin)
+            .add_system_set(SystemSet::on_enter(GameState::Game).with_system(setup))
+            .add_system_set(SystemSet::on_update(GameState::Game).with_system(shoot))
+            .add_system_set(SystemSet::on_update(GameState::Game).with_system(spawn_portals))
+            .add_system_set(
+                SystemSet::on_exit(GameState::Game).with_system(despawn_screen::<InGame>),
+            );
+    }
 }
 
 fn setup(mut commands: Commands, mut load_voxel_world: ResMut<LoadVoxelWorld>) {
@@ -38,6 +47,7 @@ fn setup(mut commands: Commands, mut load_voxel_world: ResMut<LoadVoxelWorld>) {
                 half_size: IVec3::new(0, 0, 0),
             },
             Transform::from_xyz(0.0, 1000.0, 0.0),
+            InGame,
         ))
         .id();
     let portal2 = commands
@@ -51,6 +61,7 @@ fn setup(mut commands: Commands, mut load_voxel_world: ResMut<LoadVoxelWorld>) {
                 half_size: IVec3::new(0, 0, 0),
             },
             Transform::from_xyz(0.0, 1000.0, 0.0),
+            InGame,
         ))
         .id();
 
@@ -78,6 +89,7 @@ fn setup(mut commands: Commands, mut load_voxel_world: ResMut<LoadVoxelWorld>) {
         },
         BloomSettings::default(),
         Fxaa::default(),
+        InGame,
     ));
 }
 
@@ -103,6 +115,7 @@ fn shoot(
             Particle { material: 120 },
             Velocity::new(-character.local_z() * 50.0),
             Bullet { bullet_type: 1 },
+            InGame,
         ));
     }
     if input.just_pressed(MouseButton::Right) {
@@ -111,6 +124,7 @@ fn shoot(
             Particle { material: 121 },
             Velocity::new(-character.local_z() * 50.0),
             Bullet { bullet_type: 2 },
+            InGame,
         ));
     }
 
@@ -126,6 +140,7 @@ fn shoot(
                 material: 14,
                 half_size: IVec3::new(3, 3, 3),
             },
+            InGame,
         ));
     }
 }
@@ -162,6 +177,7 @@ fn spawn_portals(
                                 half_size: plane * 6,
                             },
                             Transform::from_xyz(pos.x, pos.y, pos.z),
+                            InGame,
                         ))
                         .id();
                 }
@@ -178,6 +194,7 @@ fn spawn_portals(
                                 half_size: plane * 6,
                             },
                             Transform::from_xyz(pos.x, pos.y, pos.z),
+                            InGame,
                         ))
                         .id();
                 }

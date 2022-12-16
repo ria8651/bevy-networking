@@ -1,4 +1,3 @@
-// use crate::networking::{CreateConnectionEvent, DisconnectEvent};
 use super::{character::CharacterEntity, Velocity};
 use bevy::{
     core_pipeline::{bloom::BloomSettings, fxaa::Fxaa, tonemapping::Tonemapping},
@@ -7,7 +6,7 @@ use bevy::{
 };
 use bevy_egui::{
     egui::{self, Slider},
-    EguiContext, EguiPlugin,
+    EguiContext,
 };
 use bevy_voxel_engine::*;
 
@@ -15,23 +14,8 @@ pub struct UiPlugin;
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(EguiPlugin)
-            .add_plugin(FrameTimeDiagnosticsPlugin::default())
-            .insert_resource(UIState::default())
+        app.add_plugin(FrameTimeDiagnosticsPlugin::default())
             .add_system(ui_system);
-    }
-}
-
-#[derive(Resource)]
-struct UIState {
-    ip: String,
-}
-
-impl Default for UIState {
-    fn default() -> Self {
-        Self {
-            ip: "127.0.0.1".to_string(),
-        }
     }
 }
 
@@ -47,9 +31,6 @@ fn ui_system(
         Option<&mut Fxaa>,
     )>,
     mut denoise_pass_data: ResMut<DenoiseSettings>,
-    // mut ui_state: ResMut<UIState>,
-    // mut connection_events: EventWriter<CreateConnectionEvent>,
-    // mut disconnect_events: EventWriter<DisconnectEvent>,
 ) {
     egui::Window::new("Settings")
         .anchor(egui::Align2::RIGHT_TOP, [-5.0, 5.0])
