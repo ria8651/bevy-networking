@@ -457,12 +457,12 @@ dependencies = [
  "bevy",
  "bevy-voxel-engine",
  "bevy_egui",
+ "bevy_renet",
  "bincode",
  "egui_extras",
  "env_logger",
  "log",
  "matcher",
- "renet",
  "reqwest",
  "serde",
 ]
@@ -938,6 +938,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "bevy_renet"
+version = "0.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f62681657f4546a766951134b57d8142dca4d284e99d10802398f39567ab9b25"
+dependencies = [
+ "bevy",
+ "renet",
 ]
 
 [[package]]
@@ -3518,6 +3528,7 @@ version = "0.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "63ba434752e9edd042d898c023178e157b4dec0848b8f70eec5fbdcde856b8f3"
 dependencies = [
+ "bevy_ecs",
  "log",
  "rechannel",
  "renetcode",

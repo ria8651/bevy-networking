@@ -1,7 +1,8 @@
 use super::{character::CharacterEntity, Velocity};
+use crate::GameState;
 use bevy::{
     core_pipeline::{bloom::BloomSettings, fxaa::Fxaa, tonemapping::Tonemapping},
-    diagnostic::{FrameTimeDiagnosticsPlugin, Diagnostics},
+    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     prelude::*,
 };
 use bevy_egui::{
@@ -15,7 +16,7 @@ pub struct UiPlugin;
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(FrameTimeDiagnosticsPlugin::default())
-            .add_system(ui_system);
+            .add_system_set(SystemSet::on_update(GameState::Game).with_system(ui_system));
     }
 }
 
@@ -32,6 +33,7 @@ fn ui_system(
     )>,
     mut denoise_pass_data: ResMut<DenoiseSettings>,
     diagnostics: Res<Diagnostics>,
+    mut game_state: ResMut<State<GameState>>,
 ) {
     egui::Window::new("Settings")
         .anchor(egui::Align2::RIGHT_TOP, [-5.0, 5.0])
@@ -137,6 +139,9 @@ fn ui_system(
                 ui.checkbox(&mut render_graph_settings.trace, "trace");
                 ui.checkbox(&mut render_graph_settings.denoise, "denoise");
             });
+            if ui.button("Disconnect").clicked() {
+                game_state.set(GameState::Menu).unwrap();
+            }
         });
 
     // egui::Window::new("Networking").show(egui_context.ctx_mut(), |ui| {

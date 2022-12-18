@@ -1,5 +1,7 @@
 use self::{
     character::{CharacterEntity, CharacterPlugin},
+    client::ClientPlugin,
+    server::ServerPlugin,
     ui::UiPlugin,
 };
 use crate::{despawn_screen, GameState};
@@ -10,6 +12,8 @@ use bevy::{
 use bevy_voxel_engine::*;
 
 mod character;
+pub mod client;
+pub mod server;
 mod ui;
 
 #[derive(Component)]
@@ -22,6 +26,8 @@ impl Plugin for GamePlugin {
         app.add_plugin(BevyVoxelEnginePlugin)
             .add_plugin(CharacterPlugin)
             .add_plugin(UiPlugin)
+            .add_plugin(ClientPlugin)
+            .add_plugin(ServerPlugin)
             .add_system_set(SystemSet::on_enter(GameState::Game).with_system(setup))
             .add_system_set(SystemSet::on_update(GameState::Game).with_system(shoot))
             .add_system_set(SystemSet::on_update(GameState::Game).with_system(spawn_portals))

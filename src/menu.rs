@@ -1,4 +1,8 @@
-use crate::{despawn_screen, GameState};
+use crate::{
+    despawn_screen,
+    game::{client::Client, server::Server},
+    GameState,
+};
 use bevy::prelude::*;
 use bevy_egui::{
     egui::{self, Color32},
@@ -34,7 +38,7 @@ impl Default for MenuState {
         Self {
             username: "Bob".to_string(),
             lobby_name: "Epic Lobby".to_string(),
-            lobby_ip: "127.0.0.1".to_string(),
+            lobby_ip: "127.0.0.1:1234".to_string(),
             error: None,
         }
     }
@@ -45,6 +49,7 @@ fn setup(mut commands: Commands) {
 }
 
 fn menu(
+    mut commands: Commands,
     mut egui_context: ResMut<EguiContext>,
     mut menu_state: ResMut<MenuState>,
     mut game_state: ResMut<State<GameState>>,
@@ -72,14 +77,10 @@ fn menu(
                                 menu_state.error =
                                     Some("Nick or Lobby ip can't be empty".to_owned());
                             } else {
-                                // let server = ChatServer::new(
-                                //     menu_state.lobby_name.clone(),
-                                //     menu_state.username.clone(),
-                                //     menu_state.password.clone(),
-                                // );
-                                // *state = AppState::HostChat {
-                                //     chat_server: Box::new(server),
-                                // };
+                                commands.insert_resource(Client::new(
+                                    menu_state.lobby_ip.clone(),
+                                    menu_state.username.clone(),
+                                ));
 
                                 game_state.set(GameState::Game).unwrap();
                             }
@@ -97,14 +98,12 @@ fn menu(
                                 menu_state.error =
                                     Some("Nick or Lobby name can't be empty".to_owned());
                             } else {
-                                // let server = ChatServer::new(
-                                //     menu_state.lobby_name.clone(),
-                                //     menu_state.username.clone(),
-                                //     menu_state.password.clone(),
-                                // );
-                                // *state = AppState::HostChat {
-                                //     chat_server: Box::new(server),
-                                // };
+                                commands.insert_resource(Client::new(
+                                    "127.0.0.1:1234".to_string(),
+                                    menu_state.username.clone(),
+                                ));
+                                commands
+                                    .insert_resource(Server::new(menu_state.lobby_name.clone()));
 
                                 game_state.set(GameState::Game).unwrap();
                             }

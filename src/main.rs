@@ -15,7 +15,7 @@ enum GameState {
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_state(GameState::Splash)
+        .add_state(GameState::Menu)
         .add_plugin(splash::SplashPlugin)
         .add_plugin(menu::MenuPlugin)
         .add_plugin(game::GamePlugin)
