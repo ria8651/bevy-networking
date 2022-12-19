@@ -16,6 +16,8 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_state(GameState::Menu)
+        .add_state_to_stage(CoreStage::PreUpdate, GameState::Menu)
+        .add_state_to_stage(CoreStage::PostUpdate, GameState::Menu)
         .add_plugin(splash::SplashPlugin)
         .add_plugin(menu::MenuPlugin)
         .add_plugin(game::GamePlugin)

@@ -1,6 +1,9 @@
 use crate::{
     despawn_screen,
-    game::{client::Client, server::Server},
+    game::{
+        client::{Client, ClientResource},
+        server::{Server, ServerResource},
+    },
     GameState,
 };
 use bevy::prelude::*;
@@ -49,10 +52,11 @@ fn setup(mut commands: Commands) {
 }
 
 fn menu(
-    mut commands: Commands,
     mut egui_context: ResMut<EguiContext>,
     mut menu_state: ResMut<MenuState>,
     mut game_state: ResMut<State<GameState>>,
+    mut client: ResMut<ClientResource>,
+    mut server: ResMut<ServerResource>,
 ) {
     egui::CentralPanel::default().show(egui_context.ctx_mut(), |ui| {
         egui::Area::new("buttons")
@@ -77,10 +81,10 @@ fn menu(
                                 menu_state.error =
                                     Some("Nick or Lobby ip can't be empty".to_owned());
                             } else {
-                                commands.insert_resource(Client::new(
+                                *client = ClientResource(Some(Client::new(
                                     menu_state.lobby_ip.clone(),
                                     menu_state.username.clone(),
-                                ));
+                                )));
 
                                 game_state.set(GameState::Game).unwrap();
                             }
@@ -98,12 +102,13 @@ fn menu(
                                 menu_state.error =
                                     Some("Nick or Lobby name can't be empty".to_owned());
                             } else {
-                                commands.insert_resource(Client::new(
+                                *client = ClientResource(Some(Client::new(
                                     "127.0.0.1:1234".to_string(),
                                     menu_state.username.clone(),
-                                ));
-                                commands
-                                    .insert_resource(Server::new(menu_state.lobby_name.clone()));
+                                )));
+                                *server = ServerResource(Some(Server::new(
+                                    menu_state.lobby_name.clone(),
+                                )));
 
                                 game_state.set(GameState::Game).unwrap();
                             }

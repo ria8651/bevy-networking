@@ -14,6 +14,7 @@ use bevy_voxel_engine::*;
 mod character;
 pub mod client;
 pub mod server;
+pub mod networking;
 mod ui;
 
 #[derive(Component)]
