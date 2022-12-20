@@ -8,7 +8,7 @@ use bevy_voxel_engine::Velocity;
 use rand::Rng;
 use renet::{ClientAuthentication, DefaultChannel, RenetClient, RenetConnectionConfig};
 use std::{
-    net::{SocketAddr, UdpSocket},
+    net::{SocketAddr, ToSocketAddrs, UdpSocket},
     time::SystemTime,
 };
 
@@ -73,7 +73,7 @@ struct RemotePlayer;
 impl Client {
     pub fn new(ip: String, _: String) -> Self {
         let client_addr = SocketAddr::from(([127, 0, 0, 1], 0));
-        let server_addr = ip.parse().unwrap();
+        let server_addr = ip.to_socket_addrs().unwrap().next().unwrap();
         let socket = UdpSocket::bind(client_addr).unwrap();
         let connection_config = RenetConnectionConfig::default();
 
@@ -133,8 +133,9 @@ fn process_server_messages(
                     info!("Player {} ({}) connected.", username, client_id);
                 }
                 ServerMessages::ClientDisconnected { client_id } => {
-                    let username = client.players.remove(&client_id).unwrap().username;
-                    info!("Player {} ({}) disconnected.", username, client_id);
+                    let client_player_data = client.players.remove(&client_id).unwrap();
+                    commands.entity(client_player_data.entity).despawn();
+                    info!("Player {} ({}) disconnected.", client_player_data.username, client_id);
                 }
                 ServerMessages::ChatMessage { client_id, message } => {
                     let username = &client.players.get(&client_id).unwrap().username;

@@ -31,8 +31,9 @@ struct InMenu;
 #[derive(Resource)]
 struct MenuState {
     username: String,
-    lobby_name: String,
     lobby_ip: String,
+    lobby_name: String,
+    bind_ip: String,
     error: Option<String>,
 }
 
@@ -40,8 +41,9 @@ impl Default for MenuState {
     fn default() -> Self {
         Self {
             username: "Bob".to_string(),
-            lobby_name: "Epic Lobby".to_string(),
             lobby_ip: "127.0.0.1:1234".to_string(),
+            lobby_name: "Epic Lobby".to_string(),
+            bind_ip: "127.0.0.1:1234".to_string(),
             error: None,
         }
     }
@@ -91,9 +93,16 @@ fn menu(
                         }
                     });
 
+                    ui.separator();
+
                     ui.horizontal(|ui| {
                         ui.label("Lobby name:");
                         ui.text_edit_singleline(&mut menu_state.lobby_name)
+                    });
+
+                    ui.horizontal(|ui| {
+                        ui.label("Bind ip:");
+                        ui.text_edit_singleline(&mut menu_state.bind_ip)
                     });
 
                     ui.vertical_centered_justified(|ui| {
@@ -103,10 +112,11 @@ fn menu(
                                     Some("Nick or Lobby name can't be empty".to_owned());
                             } else {
                                 *client = ClientResource(Some(Client::new(
-                                    "127.0.0.1:1234".to_string(),
+                                    menu_state.bind_ip.clone(),
                                     menu_state.username.clone(),
                                 )));
                                 *server = ServerResource(Some(Server::new(
+                                    menu_state.bind_ip.clone(),
                                     menu_state.lobby_name.clone(),
                                 )));
 

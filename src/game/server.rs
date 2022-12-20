@@ -75,8 +75,8 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new(_: String) -> Self {
-        let socket = UdpSocket::bind("127.0.0.1:1234").unwrap();
+    pub fn new(bind_ip: String, _: String) -> Self {
+        let socket = UdpSocket::bind(bind_ip).unwrap();
         let server_addr = socket.local_addr().unwrap();
         let connection_config = RenetConnectionConfig::default();
         let server_config = ServerConfig::new(64, 0, server_addr, ServerAuthentication::Unsecure);
