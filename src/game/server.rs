@@ -183,6 +183,53 @@ fn process_client_messages(mut server_resource: ResMut<ServerResource>) {
                             .unwrap(),
                         );
                     }
+                    ClientMessages::SpawnNetworkedEntity {
+                        entity,
+                        entity_type,
+                        position,
+                        velocity,
+                    } => {
+                        server.server.broadcast_message_except(
+                            client_id,
+                            DefaultChannel::Reliable,
+                            bincode::serialize(&ServerMessages::SpawnNetworkedEntity {
+                                client_id,
+                                entity,
+                                entity_type,
+                                position,
+                                velocity,
+                            })
+                            .unwrap(),
+                        );
+                    }
+                    ClientMessages::UpdateNetworkedEntity {
+                        entity,
+                        position,
+                        velocity,
+                    } => {
+                        server.server.broadcast_message_except(
+                            client_id,
+                            DefaultChannel::Reliable,
+                            bincode::serialize(&ServerMessages::UpdateNetworkedEntity {
+                                client_id,
+                                entity,
+                                position,
+                                velocity,
+                            })
+                            .unwrap(),
+                        );
+                    }
+                    ClientMessages::DespawnNetworkedEntity { entity } => {
+                        server.server.broadcast_message_except(
+                            client_id,
+                            DefaultChannel::Reliable,
+                            bincode::serialize(&ServerMessages::DespawnNetworkedEntity {
+                                client_id,
+                                entity,
+                            })
+                            .unwrap(),
+                        );
+                    }
                 }
             }
         }

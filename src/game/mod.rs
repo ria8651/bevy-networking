@@ -1,6 +1,7 @@
 use self::{
     character::{CharacterEntity, CharacterPlugin},
-    client::ClientPlugin,
+    client::{ClientPlugin, LocalNetworkedEntity},
+    networking::NetworkedEntityType,
     server::ServerPlugin,
     ui::UiPlugin,
 };
@@ -13,8 +14,8 @@ use bevy_voxel_engine::*;
 
 mod character;
 pub mod client;
-pub mod server;
 pub mod networking;
+pub mod server;
 mod ui;
 
 #[derive(Component)]
@@ -122,6 +123,9 @@ fn shoot(
             Particle { material: 120 },
             Velocity::new(-character.local_z() * 50.0),
             Bullet { bullet_type: 1 },
+            LocalNetworkedEntity {
+                entity_type: NetworkedEntityType::Bullet(1),
+            },
             InGame,
         ));
     }
@@ -131,6 +135,9 @@ fn shoot(
             Particle { material: 121 },
             Velocity::new(-character.local_z() * 50.0),
             Bullet { bullet_type: 2 },
+            LocalNetworkedEntity {
+                entity_type: NetworkedEntityType::Bullet(2),
+            },
             InGame,
         ));
     }
