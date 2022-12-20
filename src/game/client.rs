@@ -1,6 +1,10 @@
-use super::networking::ServerMessages;
-use crate::GameState;
+use super::{
+    character::CharacterEntity,
+    networking::{ClientMessages, ServerMessages},
+};
+use crate::{game::InGame, GameState};
 use bevy::{prelude::*, utils::HashMap};
+use bevy_voxel_engine::Velocity;
 use rand::Rng;
 use renet::{ClientAuthentication, DefaultChannel, RenetClient, RenetConnectionConfig};
 use std::{
@@ -24,6 +28,7 @@ impl Plugin for ClientPlugin {
             .add_system_set(
                 SystemSet::on_update(GameState::Game).with_system(process_server_messages),
             )
+            .add_system_set(SystemSet::on_update(GameState::Game).with_system(update_player))
             .add_system_set(SystemSet::on_exit(GameState::Game).with_system(disconnect));
     }
 }
@@ -54,8 +59,16 @@ pub struct ClientResource(pub Option<Client>);
 
 pub struct Client {
     pub client: RenetClient,
-    pub players: HashMap<u64, String>,
+    pub players: HashMap<u64, ClientPlayerData>,
 }
+
+pub struct ClientPlayerData {
+    pub username: String,
+    pub entity: Entity,
+}
+
+#[derive(Component)]
+struct RemotePlayer;
 
 impl Client {
     pub fn new(ip: String, _: String) -> Self {
@@ -85,7 +98,11 @@ impl Client {
     }
 }
 
-fn process_server_messages(mut client_resource: ResMut<ClientResource>) {
+fn process_server_messages(
+    mut commands: Commands,
+    mut client_resource: ResMut<ClientResource>,
+    mut network_players: Query<&mut Transform, With<RemotePlayer>>,
+) {
     if let Some(client) = (*client_resource).as_mut() {
         while let Some(message) = client.client.receive_message(DefaultChannel::Reliable) {
             let message: ServerMessages = bincode::deserialize(&message).unwrap();
@@ -94,18 +111,64 @@ fn process_server_messages(mut client_resource: ResMut<ClientResource>) {
                     client_id,
                     username,
                 } => {
-                    client.players.insert(client_id, username.clone());
+                    let entity = commands
+                        .spawn((
+                            Transform::default(),
+                            bevy_voxel_engine::Box {
+                                half_size: IVec3::new(2, 4, 2),
+                                material: 10,
+                            },
+                            RemotePlayer,
+                            InGame,
+                        ))
+                        .id();
+
+                    client.players.insert(
+                        client_id,
+                        ClientPlayerData {
+                            username: username.clone(),
+                            entity,
+                        },
+                    );
                     info!("Player {} ({}) connected.", username, client_id);
                 }
                 ServerMessages::ClientDisconnected { client_id } => {
-                    let username = client.players.remove(&client_id).unwrap();
+                    let username = client.players.remove(&client_id).unwrap().username;
                     info!("Player {} ({}) disconnected.", username, client_id);
                 }
                 ServerMessages::ChatMessage { client_id, message } => {
-                    let username = client.players.get(&client_id).unwrap();
+                    let username = &client.players.get(&client_id).unwrap().username;
                     info!("{}: {}", username, message);
+                }
+                ServerMessages::UpdatePlayer {
+                    client_id,
+                    position,
+                    ..
+                } => {
+                    if let Some(player) = client.players.get_mut(&client_id) {
+                        if let Ok(mut transform) = network_players.get_mut(player.entity) {
+                            transform.translation = position;
+                        }
+                    }
                 }
             }
         }
+    }
+}
+
+fn update_player(
+    mut client_resource: ResMut<ClientResource>,
+    player: Query<(&Transform, &Velocity), With<CharacterEntity>>,
+) {
+    if let Some(client) = (*client_resource).as_mut() {
+        let (player, velocity) = player.single();
+        let message = ClientMessages::UpdatePlayer {
+            position: player.translation,
+            velocity: velocity.velocity,
+        };
+        client.client.send_message(
+            DefaultChannel::Reliable,
+            bincode::serialize(&message).unwrap(),
+        );
     }
 }

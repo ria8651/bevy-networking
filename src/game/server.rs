@@ -1,4 +1,7 @@
-use crate::{game::networking::ServerMessages, GameState};
+use crate::{
+    game::networking::{ClientMessages, ServerMessages},
+    GameState,
+};
 use bevy::{prelude::*, utils::HashMap};
 use renet::{
     DefaultChannel, RenetConnectionConfig, RenetServer, ServerAuthentication, ServerConfig,
@@ -22,6 +25,9 @@ impl Plugin for ServerPlugin {
             )
             .add_system_set(
                 SystemSet::on_update(GameState::Game).with_system(process_server_events),
+            )
+            .add_system_set(
+                SystemSet::on_update(GameState::Game).with_system(process_client_messages),
             )
             .add_system_set(SystemSet::on_exit(GameState::Game).with_system(close_server));
     }
@@ -106,7 +112,8 @@ fn process_server_events(
             match event {
                 ServerEvent::ClientConnected(id, _) => {
                     let username = "Bob".to_string();
-                    server.server.broadcast_message(
+                    server.server.broadcast_message_except(
+                        *id,
                         DefaultChannel::Reliable,
                         bincode::serialize(&ServerMessages::ClientConnected {
                             client_id: *id,
@@ -141,6 +148,41 @@ fn process_server_events(
                     );
 
                     info!("Player {} ({}) disconnected.", username, id);
+                }
+            }
+        }
+    }
+}
+
+fn process_client_messages(mut server_resource: ResMut<ServerResource>) {
+    if let Some(server) = (*server_resource).as_mut() {
+        for client_id in server.server.clients_id().into_iter() {
+            while let Some(message) = server
+                .server
+                .receive_message(client_id, DefaultChannel::Reliable)
+            {
+                let message: ClientMessages = bincode::deserialize(&message).unwrap();
+                match message {
+                    ClientMessages::ChatMessage { message } => {
+                        info!("{}: {}", server.players[&client_id], message);
+                        server.server.broadcast_message(
+                            DefaultChannel::Reliable,
+                            bincode::serialize(&ServerMessages::ChatMessage { client_id, message })
+                                .unwrap(),
+                        );
+                    }
+                    ClientMessages::UpdatePlayer { position, velocity } => {
+                        server.server.broadcast_message_except(
+                            client_id,
+                            DefaultChannel::Reliable,
+                            bincode::serialize(&ServerMessages::UpdatePlayer {
+                                client_id,
+                                position,
+                                velocity,
+                            })
+                            .unwrap(),
+                        );
+                    }
                 }
             }
         }
