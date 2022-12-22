@@ -1,13 +1,13 @@
 use super::{
     character::CharacterEntity,
-    networking::{ClientMessages, NetworkedEntityType, ServerMessages},
+    networking::{ClientMessages, NetworkTransform, NetworkedEntityType, ServerMessages},
 };
 use crate::{game::InGame, GameState};
 use bevy::{
     prelude::*,
     utils::{HashMap, HashSet},
 };
-use bevy_voxel_engine::{Particle, Velocity};
+use bevy_voxel_engine::*;
 use rand::Rng;
 use renet::{ClientAuthentication, DefaultChannel, RenetClient, RenetConnectionConfig};
 use std::{
@@ -128,6 +128,7 @@ fn process_server_messages(
         (&mut RemoteNetworkedEntity, &mut Transform),
         Without<RemotePlayer>,
     >,
+    asset_server: Res<AssetServer>,
 ) {
     if let Some(client) = (*client_resource).as_mut() {
         while let Some(message) = client.client.receive_message(DefaultChannel::Reliable) {
@@ -160,7 +161,9 @@ fn process_server_messages(
                 }
                 ServerMessages::ClientDisconnected { client_id } => {
                     let client_player_data = client.players.remove(&client_id).unwrap();
-                    commands.entity(client_player_data.entity).despawn();
+                    commands
+                        .entity(client_player_data.entity)
+                        .despawn_recursive();
                     info!(
                         "Player {} ({}) disconnected.",
                         client_player_data.username, client_id
@@ -185,8 +188,7 @@ fn process_server_messages(
                     client_id,
                     entity,
                     entity_type,
-                    position,
-                    velocity,
+                    transform,
                 } => match entity_type {
                     NetworkedEntityType::Bullet(bullet_type) => {
                         let material = match bullet_type {
@@ -197,11 +199,56 @@ fn process_server_messages(
 
                         let local_entity = commands
                             .spawn((
-                                Transform::from_translation(position),
+                                Transform::from(&transform),
                                 Particle { material },
-                                RemoteNetworkedEntity { velocity },
+                                RemoteNetworkedEntity {
+                                    velocity: transform.velocity,
+                                },
                                 InGame,
                             ))
+                            .id();
+
+                        client
+                            .networked_entitys
+                            .entry(client_id)
+                            .or_default()
+                            .insert(entity, local_entity);
+                    }
+                    NetworkedEntityType::Portal(portal_type) => {
+                        let material = match portal_type {
+                            0 => 120,
+                            1 => 121,
+                            _ => 10,
+                        };
+
+                        let local_entity = commands
+                            .spawn((
+                                VoxelizationBundle {
+                                    mesh_handle: asset_server.load("models/portal.obj"),
+                                    transform: Transform::from(&transform),
+                                    voxelization_material: VoxelizationMaterial {
+                                        flags: Flags::ANIMATION_FLAG | Flags::PORTAL_FLAG,
+                                        ..default()
+                                    },
+                                    ..default()
+                                },
+                                Portal,
+                                RemoteNetworkedEntity {
+                                    velocity: transform.velocity,
+                                },
+                                InGame,
+                            ))
+                            .with_children(|parent| {
+                                // portal border
+                                parent.spawn(VoxelizationBundle {
+                                    mesh_handle: asset_server.load("models/portal_frame.obj"),
+                                    voxelization_material: VoxelizationMaterial {
+                                        material: VoxelizationMaterialType::Material(material),
+                                        flags: Flags::ANIMATION_FLAG | Flags::COLLISION_FLAG,
+                                    },
+                                    ..default()
+                                });
+                            })
                             .id();
 
                         client
@@ -214,19 +261,18 @@ fn process_server_messages(
                 ServerMessages::UpdateNetworkedEntity {
                     client_id,
                     entity,
-                    position,
-                    velocity,
+                    transform,
                 } => {
                     let local_entity = client.networked_entitys[&client_id][&entity];
                     if let Ok(query) = networked_entitys.get_mut(local_entity) {
-                        let (mut remote_networked_entity, mut transform) = query;
-                        transform.translation = position;
-                        remote_networked_entity.velocity = velocity;
+                        let (mut remote_networked_entity, mut local_transform) = query;
+                        remote_networked_entity.velocity = transform.velocity;
+                        *local_transform = Transform::from(&transform);
                     }
                 }
                 ServerMessages::DespawnNetworkedEntity { client_id, entity } => {
                     let local_entity = client.networked_entitys[&client_id][&entity];
-                    commands.entity(local_entity).despawn();
+                    commands.entity(local_entity).despawn_recursive();
                     client
                         .networked_entitys
                         .get_mut(&client_id)
@@ -266,8 +312,10 @@ fn update_networked_entitys(
                     DefaultChannel::Reliable,
                     bincode::serialize(&ClientMessages::UpdateNetworkedEntity {
                         entity,
-                        position: transform.translation,
-                        velocity: velocity.map(|v| v.velocity).unwrap_or_default(),
+                        transform: NetworkTransform::from_transform(
+                            transform,
+                            velocity.map(|v| v.velocity).unwrap_or_default(),
+                        ),
                     })
                     .unwrap(),
                 );
@@ -277,8 +325,10 @@ fn update_networked_entitys(
                     bincode::serialize(&ClientMessages::SpawnNetworkedEntity {
                         entity,
                         entity_type: local_networked_entity.entity_type,
-                        position: transform.translation,
-                        velocity: velocity.map(|v| v.velocity).unwrap_or_default(),
+                        transform: NetworkTransform::from_transform(
+                            transform,
+                            velocity.map(|v| v.velocity).unwrap_or_default(),
+                        ),
                     })
                     .unwrap(),
                 );

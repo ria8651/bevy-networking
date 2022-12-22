@@ -9,6 +9,8 @@ use renet::{
 };
 use std::{net::UdpSocket, time::SystemTime};
 
+use super::networking::{NetworkTransform, NetworkedEntityType};
+
 pub struct ServerPlugin;
 
 impl Plugin for ServerPlugin {
@@ -24,10 +26,9 @@ impl Plugin for ServerPlugin {
                 SystemSet::on_update(GameState::Game).with_system(send_packets),
             )
             .add_system_set(
-                SystemSet::on_update(GameState::Game).with_system(process_server_events),
-            )
-            .add_system_set(
-                SystemSet::on_update(GameState::Game).with_system(process_client_messages),
+                SystemSet::on_update(GameState::Game)
+                    .with_system(process_server_events)
+                    .with_system(process_client_messages.after(process_server_events)),
             )
             .add_system_set(SystemSet::on_exit(GameState::Game).with_system(close_server));
     }
@@ -72,6 +73,12 @@ pub struct ServerResource(pub Option<Server>);
 pub struct Server {
     pub server: RenetServer,
     pub players: HashMap<u64, String>,
+    networked_entities: HashMap<u64, HashMap<Entity, NetworkedEntity>>,
+}
+
+struct NetworkedEntity {
+    entity_type: NetworkedEntityType,
+    transform: NetworkTransform,
 }
 
 impl Server {
@@ -99,6 +106,7 @@ impl Server {
             server: RenetServer::new(current_time, server_config, connection_config, socket)
                 .unwrap(),
             players: HashMap::default(),
+            networked_entities: HashMap::default(),
         }
     }
 }
@@ -122,6 +130,7 @@ fn process_server_events(
                         .unwrap(),
                     );
 
+                    // send currently connected players to the new player
                     for &player_id in server.players.keys() {
                         server.server.send_message(
                             *id,
@@ -132,6 +141,24 @@ fn process_server_events(
                             })
                             .unwrap(),
                         );
+                    }
+
+                    // send currently spawned entities to the new player
+                    for (client_id, entities) in server.networked_entities.iter() {
+                        for (entity, networked_entity) in entities.iter() {
+                            info!("Sending entity to client: {:?}", entity);
+                            server.server.send_message(
+                                *id,
+                                DefaultChannel::Reliable,
+                                bincode::serialize(&ServerMessages::SpawnNetworkedEntity {
+                                    client_id: *client_id,
+                                    entity: *entity,
+                                    entity_type: networked_entity.entity_type,
+                                    transform: networked_entity.transform,
+                                })
+                                .unwrap(),
+                            );
+                        }
                     }
 
                     server.players.insert(*id, username.clone());
@@ -186,8 +213,7 @@ fn process_client_messages(mut server_resource: ResMut<ServerResource>) {
                     ClientMessages::SpawnNetworkedEntity {
                         entity,
                         entity_type,
-                        position,
-                        velocity,
+                        transform,
                     } => {
                         server.server.broadcast_message_except(
                             client_id,
@@ -196,28 +222,41 @@ fn process_client_messages(mut server_resource: ResMut<ServerResource>) {
                                 client_id,
                                 entity,
                                 entity_type,
-                                position,
-                                velocity,
+                                transform,
                             })
                             .unwrap(),
                         );
+
+                        let networked_entity = NetworkedEntity {
+                            entity_type,
+                            transform,
+                        };
+
+                        server
+                            .networked_entities
+                            .entry(client_id)
+                            .or_default()
+                            .insert(entity, networked_entity);
                     }
-                    ClientMessages::UpdateNetworkedEntity {
-                        entity,
-                        position,
-                        velocity,
-                    } => {
+                    ClientMessages::UpdateNetworkedEntity { entity, transform } => {
                         server.server.broadcast_message_except(
                             client_id,
                             DefaultChannel::Reliable,
                             bincode::serialize(&ServerMessages::UpdateNetworkedEntity {
                                 client_id,
                                 entity,
-                                position,
-                                velocity,
+                                transform,
                             })
                             .unwrap(),
                         );
+
+                        server
+                            .networked_entities
+                            .get_mut(&client_id)
+                            .unwrap()
+                            .get_mut(&entity)
+                            .unwrap()
+                            .transform = transform;
                     }
                     ClientMessages::DespawnNetworkedEntity { entity } => {
                         server.server.broadcast_message_except(
@@ -229,6 +268,12 @@ fn process_client_messages(mut server_resource: ResMut<ServerResource>) {
                             })
                             .unwrap(),
                         );
+
+                        server
+                            .networked_entities
+                            .get_mut(&client_id)
+                            .unwrap()
+                            .remove(&entity);
                     }
                 }
             }

@@ -23,14 +23,12 @@ pub enum ServerMessages {
         client_id: u64,
         entity: Entity,
         entity_type: NetworkedEntityType,
-        position: Vec3,
-        velocity: Vec3,
+        transform: NetworkTransform,
     },
     UpdateNetworkedEntity {
         client_id: u64,
         entity: Entity,
-        position: Vec3,
-        velocity: Vec3,
+        transform: NetworkTransform,
     },
     DespawnNetworkedEntity {
         client_id: u64,
@@ -50,13 +48,11 @@ pub enum ClientMessages {
     SpawnNetworkedEntity {
         entity: Entity,
         entity_type: NetworkedEntityType,
-        position: Vec3,
-        velocity: Vec3,
+        transform: NetworkTransform,
     },
     UpdateNetworkedEntity {
         entity: Entity,
-        position: Vec3,
-        velocity: Vec3,
+        transform: NetworkTransform,
     },
     DespawnNetworkedEntity {
         entity: Entity,
@@ -66,4 +62,34 @@ pub enum ClientMessages {
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub enum NetworkedEntityType {
     Bullet(u32),
+    Portal(u32),
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+pub struct NetworkTransform {
+    pub position: Vec3,
+    pub rotation: Quat,
+    pub scale: Vec3,
+    pub velocity: Vec3,
+}
+
+impl NetworkTransform {
+    pub fn from_transform(transform: &Transform, velocity: Vec3) -> Self {
+        Self {
+            position: transform.translation,
+            rotation: transform.rotation,
+            scale: transform.scale,
+            velocity,
+        }
+    }
+}
+
+impl From<&NetworkTransform> for Transform {
+    fn from(network_transform: &NetworkTransform) -> Self {
+        Self {
+            translation: network_transform.position,
+            rotation: network_transform.rotation,
+            scale: network_transform.scale,
+        }
+    }
 }
