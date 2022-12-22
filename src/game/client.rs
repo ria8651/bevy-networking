@@ -11,7 +11,7 @@ use bevy_voxel_engine::*;
 use rand::Rng;
 use renet::{ClientAuthentication, DefaultChannel, RenetClient, RenetConnectionConfig};
 use std::{
-    net::{SocketAddr, ToSocketAddrs, UdpSocket},
+    net::{ToSocketAddrs, UdpSocket},
     time::SystemTime,
 };
 
@@ -92,9 +92,8 @@ pub struct RemoteNetworkedEntity {
 
 impl Client {
     pub fn new(ip: String, _: String) -> Self {
-        let client_addr = SocketAddr::from(([127, 0, 0, 1], 0));
+        let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
         let server_addr = ip.to_socket_addrs().unwrap().next().unwrap();
-        let socket = UdpSocket::bind(client_addr).unwrap();
         let connection_config = RenetConnectionConfig::default();
 
         let current_time = SystemTime::now()

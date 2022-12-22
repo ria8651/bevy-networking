@@ -7,7 +7,10 @@ use renet::{
     DefaultChannel, RenetConnectionConfig, RenetServer, ServerAuthentication, ServerConfig,
     ServerEvent,
 };
-use std::{net::UdpSocket, time::SystemTime};
+use std::{
+    net::{ToSocketAddrs, UdpSocket},
+    time::SystemTime,
+};
 
 use super::networking::{NetworkTransform, NetworkedEntityType};
 
@@ -83,8 +86,8 @@ struct NetworkedEntity {
 
 impl Server {
     pub fn new(bind_ip: String, _: String) -> Self {
-        let socket = UdpSocket::bind(bind_ip).unwrap();
-        let server_addr = socket.local_addr().unwrap();
+        let socket = UdpSocket::bind("0.0.0.0:1234").unwrap();
+        let server_addr = bind_ip.to_socket_addrs().unwrap().next().unwrap();
         let connection_config = RenetConnectionConfig::default();
         let server_config = ServerConfig::new(64, 0, server_addr, ServerAuthentication::Unsecure);
 
