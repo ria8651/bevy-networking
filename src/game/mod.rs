@@ -57,7 +57,7 @@ fn setup(
                 .spawn((
                     VoxelizationBundle {
                         mesh_handle: asset_server.load("models/portal.obj"),
-                        transform: Transform::from_xyz(0.0, 100.0, 0.0)
+                        transform: Transform::from_xyz(1.0, 100.0, 0.0)
                             .looking_at(Vec3::ZERO, Vec3::Y)
                             .with_scale(Vec3::new(i as f32 * 2.0 - 1.0, 1.0, i as f32 * 2.0 - 1.0)),
                         voxelization_material: VoxelizationMaterial {
